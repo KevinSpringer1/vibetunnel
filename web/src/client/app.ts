@@ -26,6 +26,9 @@ import { titleManager } from './utils/title-manager.js';
 // Import IME debug utilities (only in development)
 import './utils/ime-debug.js';
 
+// Import mobile console for iPad/iPhone debugging
+import './utils/mobile-console.js';
+
 // Import components
 import './components/app-header.js';
 import './components/session-create-form.js';

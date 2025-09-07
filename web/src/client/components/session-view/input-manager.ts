@@ -79,10 +79,32 @@ export class InputManager {
     const MAX_RETRIES = 10;
     const IME_SETUP_RETRY_DELAY_MS = 100;
 
-    // Skip IME input setup on mobile devices (they have their own IME handling)
-    if (detectMobile()) {
-      logger.log('Skipping IME input setup on mobile device');
+    // Log device detection info for debugging
+    logger.log('🔍 Device detection:', {
+      userAgent: navigator.userAgent,
+      platform: navigator.platform,
+      maxTouchPoints: navigator.maxTouchPoints,
+      detectMobile: detectMobile(),
+    });
+
+    // Check if we should skip IME setup
+    // Skip for mobile phones (iPhone, Android phones) but NOT for iPads
+    // iPads with external keyboards need IME input for proper CJK support
+    const isIPad =
+      /iPad/.test(navigator.userAgent) ||
+      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    const isMobilePhone =
+      /iPhone|Android/i.test(navigator.userAgent) && !/iPad/.test(navigator.userAgent);
+
+    if (isMobilePhone) {
+      logger.log('📵 Skipping IME input setup on mobile phone');
       return;
+    }
+
+    if (isIPad) {
+      logger.log('📱 iPad detected - enabling IME input for better keyboard support');
+    } else {
+      logger.log('💻 Desktop/laptop detected - enabling IME input');
     }
 
     // Skip if IME input already exists
@@ -471,6 +493,16 @@ export class InputManager {
       setTimeout(() => {
         this.imeInput?.refreshPosition();
       }, 50);
+    }
+  }
+
+  focusIMEInput(): void {
+    // Focus IME input if it exists
+    if (this.imeInput) {
+      logger.log('📱 Focusing IME input from keyboard button');
+      this.imeInput.focus();
+    } else {
+      logger.log('⚠️ IME input not available to focus');
     }
   }
 

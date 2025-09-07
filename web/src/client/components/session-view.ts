@@ -831,6 +831,15 @@ export class SessionView extends LitElement {
     // Must be called directly in the click handler without any delays
     this.directKeyboardManager.focusHiddenInput();
 
+    // For iPad, also focus IME input for Chinese input support
+    const isIPad =
+      /iPad/.test(navigator.userAgent) ||
+      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    if (isIPad && this.inputManager) {
+      // Try to focus IME input if it exists
+      this.inputManager.focusIMEInput();
+    }
+
     // Request update after all synchronous operations
     this.requestUpdate();
   }
