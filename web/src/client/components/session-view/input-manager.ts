@@ -153,14 +153,7 @@ export class InputManager {
       return;
     }
 
-    logger.log('📦 Found terminal container:', {
-      id: terminalContainer.id,
-      className: terminalContainer.className,
-      parent: terminalContainer.parentElement?.tagName,
-    });
-
     // Create IME input component
-    logger.log('🎨 Creating DesktopIMEInput component');
     this.imeInput = new DesktopIMEInput({
       container: terminalContainer,
       onTextInput: (text: string) => {
@@ -683,14 +676,7 @@ export class InputManager {
       return;
     }
 
-    logger.log('📦 Found terminal container for forced setup:', {
-      id: terminalContainer.id,
-      className: terminalContainer.className,
-      parent: terminalContainer.parentElement?.tagName,
-    });
-
     // Create IME input component
-    logger.log('🎨 Creating DesktopIMEInput component');
     this.imeInput = new DesktopIMEInput({
       container: terminalContainer,
       onTextInput: (text: string) => {

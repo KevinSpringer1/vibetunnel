@@ -78,15 +78,7 @@ export class DesktopIMEInput {
     input.style.outline = 'none';
     input.style.caretColor = '#e2e8f0'; // Show cursor for better IME feedback
 
-    logger.log('🎯 IME input created with styles:', {
-      position: input.style.position,
-      bottom: input.style.bottom,
-      opacity: input.style.opacity,
-      visibility: input.style.visibility,
-      zIndex: input.style.zIndex,
-      width: input.style.width,
-      height: input.style.height,
-    });
+    // IME input created
     input.autocapitalize = 'off';
     input.setAttribute('autocorrect', 'off');
     input.autocomplete = 'off';
@@ -102,24 +94,7 @@ export class DesktopIMEInput {
 
     this.options.container.appendChild(input);
 
-    // Verify input is in DOM
-    setTimeout(() => {
-      const foundInput = document.getElementById('vibe-desktop-ime-input');
-      logger.log('🔍 IME input DOM check:', {
-        found: !!foundInput,
-        parent: foundInput?.parentElement?.id || 'no-parent',
-        isConnected: foundInput?.isConnected,
-        computedStyles: foundInput
-          ? {
-              display: window.getComputedStyle(foundInput).display,
-              visibility: window.getComputedStyle(foundInput).visibility,
-              opacity: window.getComputedStyle(foundInput).opacity,
-              position: window.getComputedStyle(foundInput).position,
-              zIndex: window.getComputedStyle(foundInput).zIndex,
-            }
-          : null,
-      });
-    }, 100);
+    // Input added to DOM
 
     return input;
   }
@@ -182,21 +157,11 @@ export class DesktopIMEInput {
     // Keep input visible during composition
     this.showInput();
     this.updatePosition();
-    logger.log('🔴 IME composition started - isComposing:', this.isComposing);
-    logger.log('🔴 Input element state:', {
-      value: this.input.value,
-      focused: document.activeElement === this.input,
-      opacity: this.input.style.opacity,
-      position: `${this.input.style.left}, ${this.input.style.bottom}`,
-    });
+    logger.log('IME composition started');
   };
 
   private handleCompositionUpdate = (e: CompositionEvent) => {
-    logger.log('🟡 IME composition update:', {
-      data: e.data,
-      inputValue: this.input.value,
-      isComposing: this.isComposing,
-    });
+    logger.log('IME composition update:', e.data);
     // Update position during composition as well
     this.updatePosition();
   };
@@ -206,22 +171,13 @@ export class DesktopIMEInput {
     document.body.removeAttribute('data-ime-composing');
 
     const finalText = e.data;
-    logger.log('🟢 IME composition ended:', {
-      finalText,
-      eventData: e.data,
-      inputValue: this.input.value,
-      willSendText: !!finalText,
-    });
+    logger.log('IME composition ended:', finalText);
 
     if (finalText) {
-      logger.log('🚀 Sending IME text to terminal:', finalText);
       this.options.onTextInput(finalText);
-    } else {
-      logger.warn('⚠️ IME composition ended with no text');
     }
 
     this.input.value = '';
-    logger.log('🧹 Input cleared after composition');
 
     // Hide input after composition if not focused
     setTimeout(() => {
@@ -236,22 +192,13 @@ export class DesktopIMEInput {
     const input = e.target as HTMLInputElement;
     const text = input.value;
 
-    logger.log('📝 Input event:', {
-      text,
-      isComposing: this.isComposing,
-      inputType: (e as InputEvent).inputType,
-      data: (e as InputEvent).data,
-    });
-
     // Skip if composition is active
     if (this.isComposing) {
-      logger.log('⏭️ Skipping input during composition');
       return;
     }
 
     // Handle regular typing (non-IME)
     if (text) {
-      logger.log('📤 Sending regular text to terminal:', text);
       this.options.onTextInput(text);
       input.value = '';
       // Hide input after sending text if not focused
@@ -405,8 +352,6 @@ export class DesktopIMEInput {
   }
 
   focus(): void {
-    logger.log('🎯 Focus requested on IME input');
-
     // Ensure input is properly positioned and visible
     this.updatePosition();
     this.showInput();
@@ -417,21 +362,12 @@ export class DesktopIMEInput {
     // Use immediate focus
     this.input.focus();
 
-    logger.log('🔍 After focus attempt:', {
-      activeElement: document.activeElement?.tagName,
-      isOurInput: document.activeElement === this.input,
-      inputId: this.input.id || 'no-id',
-      opacity: this.input.style.opacity,
-    });
-
     // Verify focus worked
     requestAnimationFrame(() => {
       if (document.activeElement !== this.input) {
-        logger.warn('⚠️ Focus lost, retrying...');
         requestAnimationFrame(() => {
           if (document.activeElement !== this.input) {
             this.input.focus();
-            logger.log('🔄 Retry focus result:', document.activeElement === this.input);
           }
         });
       }
