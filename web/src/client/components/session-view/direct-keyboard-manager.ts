@@ -230,16 +230,17 @@ export class DirectKeyboardManager extends ManagerEventEmitter {
   private createHiddenInput(): void {
     this.hiddenInput = document.createElement('input');
     this.hiddenInput.type = 'text';
-    this.hiddenInput.style.position = 'absolute';
+    this.hiddenInput.style.position = 'fixed';
 
     // Hidden input that receives keyboard focus
-    this.hiddenInput.style.opacity = '0.01'; // iOS needs non-zero opacity
+    // Make input slightly visible for better IME support
+    this.hiddenInput.style.opacity = '0.5'; // More visible for IME
     this.hiddenInput.style.fontSize = '16px'; // Prevent zoom on iOS
-    this.hiddenInput.style.border = 'none';
+    this.hiddenInput.style.border = '1px solid rgba(255, 255, 255, 0.1)';
     this.hiddenInput.style.outline = 'none';
-    this.hiddenInput.style.background = 'transparent';
-    this.hiddenInput.style.color = 'transparent';
-    this.hiddenInput.style.caretColor = 'transparent';
+    this.hiddenInput.style.background = 'rgba(30, 30, 40, 0.8)';
+    this.hiddenInput.style.color = '#e2e8f0';
+    this.hiddenInput.style.caretColor = '#e2e8f0'; // Show cursor for IME
     this.hiddenInput.style.cursor = 'default';
     this.hiddenInput.style.pointerEvents = 'none'; // Start with pointer events disabled
     this.hiddenInput.placeholder = '';
@@ -703,24 +704,29 @@ export class DirectKeyboardManager extends ManagerEventEmitter {
     if (!this.hiddenInput) return;
 
     if (this.keyboardMode) {
-      // In keyboard mode: position at bottom center but invisible
+      // In keyboard mode: position at bottom center for consistent IME display
       this.hiddenInput.style.position = 'fixed';
-      this.hiddenInput.style.bottom = '50px'; // Above quick keys
+      this.hiddenInput.style.bottom = '100px'; // Above quick keys with space for IME
       this.hiddenInput.style.left = '50%';
       this.hiddenInput.style.transform = 'translateX(-50%)';
-      this.hiddenInput.style.width = '1px';
-      this.hiddenInput.style.height = '1px';
+      this.hiddenInput.style.width = '250px'; // Wider for better IME compatibility
+      this.hiddenInput.style.height = '30px';
+      this.hiddenInput.style.padding = '4px 8px';
+      this.hiddenInput.style.borderRadius = '4px';
       this.hiddenInput.style.zIndex = String(Z_INDEX.TERMINAL_OVERLAY + 100);
       this.hiddenInput.style.pointerEvents = 'auto'; // Allow focus
+      this.hiddenInput.style.opacity = '0.5'; // More visible for IME
     } else {
-      // In scroll mode: position off-screen
+      // In scroll mode: hide but keep accessible
       this.hiddenInput.style.position = 'fixed';
-      this.hiddenInput.style.left = '-9999px';
-      this.hiddenInput.style.top = '-9999px';
-      this.hiddenInput.style.width = '1px';
-      this.hiddenInput.style.height = '1px';
+      this.hiddenInput.style.bottom = '20px';
+      this.hiddenInput.style.left = '50%';
+      this.hiddenInput.style.transform = 'translateX(-50%)';
+      this.hiddenInput.style.width = '250px';
+      this.hiddenInput.style.height = '30px';
       this.hiddenInput.style.zIndex = '-1';
       this.hiddenInput.style.pointerEvents = 'none';
+      this.hiddenInput.style.opacity = '0.01'; // Nearly invisible
     }
   }
 

@@ -13,7 +13,7 @@ import { consumeEvent } from '../../utils/event-utils.js';
 import { isIMEAllowedKey } from '../../utils/ime-constants.js';
 import { createLogger } from '../../utils/logger.js';
 import { detectMobile } from '../../utils/mobile-utils.js';
-import { CJK_LANGUAGE_CODES, TERMINAL_IDS } from '../../utils/terminal-constants.js';
+import { TERMINAL_IDS } from '../../utils/terminal-constants.js';
 import { DesktopIMEInput } from '../ime-input.js';
 import type { Terminal } from '../terminal.js';
 import type { VibeTerminalBinary } from '../vibe-terminal-binary.js';
@@ -75,69 +75,6 @@ export class InputManager {
     this.callbacks = callbacks;
   }
 
-  /**
-   * Check if a CJK (Chinese, Japanese, Korean) language is currently active
-   * This detects both system language and input method editor (IME) state
-   */
-  private isCJKLanguageActive(): boolean {
-    // Check system/browser language first
-    const languages = [navigator.language, ...(navigator.languages || [])];
-
-    // Check if any of the user's languages are CJK
-    const hasCJKLanguage = languages.some((lang) =>
-      CJK_LANGUAGE_CODES.some((cjkLang) => lang.toLowerCase().startsWith(cjkLang.toLowerCase()))
-    );
-
-    if (hasCJKLanguage) {
-      logger.log('CJK language detected in browser languages:', languages);
-      return true;
-    }
-
-    // Additional check: look for common CJK input method indicators
-    // This is more of a heuristic since there's no direct IME detection API
-    const hasIMEKeyboard = this.hasIMEKeyboard();
-    if (hasIMEKeyboard) {
-      logger.log('IME keyboard detected, likely CJK input method');
-      return true;
-    }
-
-    logger.log('No CJK language or IME detected', { languages, hasIMEKeyboard });
-    return false;
-  }
-
-  /**
-   * Heuristic check for IME keyboard presence
-   * This is not 100% reliable but provides a reasonable fallback
-   */
-  private hasIMEKeyboard(): boolean {
-    // Check for composition events support (indicates IME capability)
-    if (!('CompositionEvent' in window)) {
-      return false;
-    }
-
-    // Check if the virtual keyboard API indicates composition support
-    if ('virtualKeyboard' in navigator) {
-      try {
-        const nav = navigator as Navigator & { virtualKeyboard?: { overlaysContent?: boolean } };
-        const vk = nav.virtualKeyboard;
-        // Some IME keyboards set overlaysContent to true
-        if (vk && vk.overlaysContent !== undefined) {
-          return true;
-        }
-      } catch (_e) {
-        // Ignore errors accessing virtual keyboard API
-      }
-    }
-
-    // Fallback: assume IME is possible if composition events are supported
-    // and we're on a platform that commonly uses IME
-    const userAgent = navigator.userAgent.toLowerCase();
-    const isCommonIMEPlatform =
-      userAgent.includes('windows') || userAgent.includes('mac') || userAgent.includes('linux');
-
-    return isCommonIMEPlatform;
-  }
-
   private setupIMEInput(retryCount = 0): void {
     const MAX_RETRIES = 10;
     const IME_SETUP_RETRY_DELAY_MS = 100;
@@ -154,13 +91,9 @@ export class InputManager {
       return;
     }
 
-    // Only enable IME input for CJK languages
-    if (!this.isCJKLanguageActive()) {
-      logger.log('Skipping IME input setup - no CJK language detected');
-      return;
-    }
-
-    logger.log('Setting up IME input on desktop device for CJK language');
+    // Enable IME input for all users (not just CJK languages)
+    // This ensures proper input support for all languages
+    logger.log('Setting up IME input on desktop device for all users');
 
     // Check if terminal element exists first - if not, defer setup
     const terminalElement = this.callbacks?.getTerminalElement?.();
@@ -180,13 +113,32 @@ export class InputManager {
     }
 
     // Find the terminal container to position the IME input correctly
-    const terminalContainer = document.getElementById(TERMINAL_IDS.SESSION_TERMINAL);
+    // Try multiple possible IDs since different terminal components use different IDs
+    let terminalContainer = document.getElementById(TERMINAL_IDS.SESSION_TERMINAL);
     if (!terminalContainer) {
-      logger.warn('Terminal container not found, cannot setup IME input');
+      // Fallback to terminal-container ID used by regular terminal component
+      terminalContainer = document.getElementById(TERMINAL_IDS.TERMINAL_CONTAINER);
+    }
+    if (!terminalContainer) {
+      // Final fallback - try to find any element with terminal class
+      terminalContainer = document.querySelector('.terminal-scroll-container') as HTMLElement;
+    }
+
+    if (!terminalContainer) {
+      logger.warn(
+        'Terminal container not found (tried session-terminal, terminal-container, .terminal-scroll-container), cannot setup IME input'
+      );
       return;
     }
 
+    logger.log('📦 Found terminal container:', {
+      id: terminalContainer.id,
+      className: terminalContainer.className,
+      parent: terminalContainer.parentElement?.tagName,
+    });
+
     // Create IME input component
+    logger.log('🎨 Creating DesktopIMEInput component');
     this.imeInput = new DesktopIMEInput({
       container: terminalContainer,
       onTextInput: (text: string) => {
@@ -387,15 +339,27 @@ export class InputManager {
     input: { text?: string; key?: string },
     errorContext: string
   ): Promise<void> {
-    if (!this.session) return;
+    if (!this.session) {
+      logger.warn('⚠️ No session available, cannot send input');
+      return;
+    }
+
+    logger.log('🔄 sendInputInternal:', {
+      input,
+      errorContext,
+      useWebSocketInput: this.useWebSocketInput,
+      sessionId: this.session.id,
+    });
 
     try {
       // Try WebSocket first if feature enabled - non-blocking (connection should already be established)
       if (this.useWebSocketInput) {
         const sentViaWebSocket = websocketInputClient.sendInput(input);
+        logger.log('🌐 WebSocket send result:', sentViaWebSocket);
 
         if (sentViaWebSocket) {
           // Successfully sent via WebSocket, no need for HTTP fallback
+          logger.log('✅ Input sent via WebSocket');
           return;
         }
       }
@@ -432,6 +396,13 @@ export class InputManager {
   }
 
   async sendInputText(text: string): Promise<void> {
+    logger.log('📤 sendInputText called with:', {
+      text,
+      length: text.length,
+      sessionId: this.session?.id,
+      hasSession: !!this.session,
+    });
+
     // sendInputText is used for pasted content - always treat as literal text
     // Never interpret pasted text as special keys to avoid ambiguity
     await this.sendInputInternal({ text }, 'send input to session');
@@ -661,13 +632,33 @@ export class InputManager {
    * Force setup IME input without language checks (used when composition is detected)
    */
   private forceSetupIMEInput(): void {
-    const terminalContainer = document.getElementById(TERMINAL_IDS.SESSION_TERMINAL);
+    // Find the terminal container to position the IME input correctly
+    // Try multiple possible IDs since different terminal components use different IDs
+    let terminalContainer = document.getElementById(TERMINAL_IDS.SESSION_TERMINAL);
     if (!terminalContainer) {
-      logger.warn('Terminal container not found, cannot setup IME input');
+      // Fallback to terminal-container ID used by regular terminal component
+      terminalContainer = document.getElementById(TERMINAL_IDS.TERMINAL_CONTAINER);
+    }
+    if (!terminalContainer) {
+      // Final fallback - try to find any element with terminal class
+      terminalContainer = document.querySelector('.terminal-scroll-container') as HTMLElement;
+    }
+
+    if (!terminalContainer) {
+      logger.warn(
+        'Terminal container not found (tried session-terminal, terminal-container, .terminal-scroll-container), cannot setup IME input'
+      );
       return;
     }
 
+    logger.log('📦 Found terminal container for forced setup:', {
+      id: terminalContainer.id,
+      className: terminalContainer.className,
+      parent: terminalContainer.parentElement?.tagName,
+    });
+
     // Create IME input component
+    logger.log('🎨 Creating DesktopIMEInput component');
     this.imeInput = new DesktopIMEInput({
       container: terminalContainer,
       onTextInput: (text: string) => {

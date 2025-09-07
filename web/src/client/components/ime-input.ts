@@ -11,7 +11,7 @@
 
 import { Z_INDEX } from '../utils/constants.js';
 import { createLogger } from '../utils/logger.js';
-import { IME_VERTICAL_OFFSET_PX, TERMINAL_FONT_FAMILY } from '../utils/terminal-constants.js';
+import { TERMINAL_FONT_FAMILY } from '../utils/terminal-constants.js';
 
 const logger = createLogger('ime-input');
 
@@ -55,38 +55,72 @@ export class DesktopIMEInput {
   private createInput(): HTMLInputElement {
     const input = document.createElement('input');
     input.type = 'text';
-    // Use a more standard IME input approach - always visible but positioned
-    input.style.position = 'absolute';
-    input.style.top = '-9999px'; // Start off-screen
-    input.style.left = '-9999px';
-    input.style.transform = 'none';
-    input.style.width = '200px'; // Fixed width for better IME compatibility
-    input.style.height = '24px';
-    // Use terminal font size if available, otherwise default to 14px
-    const fontSize = this.options.getFontSize?.() || 14;
+    // Position input for proper IME candidate window display
+    input.style.position = 'fixed';
+    input.style.bottom = '20px'; // Position at bottom of screen for consistent IME display
+    input.style.left = '50%';
+    input.style.transform = 'translateX(-50%)';
+    input.style.width = '300px'; // Wider for better IME compatibility
+    input.style.height = '30px';
+    // Use terminal font size if available, otherwise default to 16px (prevents zoom on iOS)
+    const fontSize = Math.max(this.options.getFontSize?.() || 16, 16);
     input.style.fontSize = `${fontSize}px`;
-    input.style.padding = '2px 4px';
-    input.style.border = 'none';
-    input.style.borderRadius = '0';
-    input.style.backgroundColor = 'transparent';
+    input.style.padding = '4px 8px';
+    input.style.border = '1px solid rgba(255, 255, 255, 0.1)';
+    input.style.borderRadius = '4px';
+    input.style.backgroundColor = 'rgba(30, 30, 40, 0.9)';
     input.style.color = '#e2e8f0';
     input.style.zIndex = String(this.options.zIndex || Z_INDEX.IME_INPUT);
-    input.style.opacity = '1';
+    input.style.opacity = '0.01'; // Nearly invisible but still functional
     input.style.visibility = 'visible';
     input.style.pointerEvents = 'auto';
     input.style.fontFamily = TERMINAL_FONT_FAMILY;
     input.style.outline = 'none';
-    input.style.caretColor = 'transparent'; // Hide the blinking cursor
+    input.style.caretColor = '#e2e8f0'; // Show cursor for better IME feedback
+
+    logger.log('🎯 IME input created with styles:', {
+      position: input.style.position,
+      bottom: input.style.bottom,
+      opacity: input.style.opacity,
+      visibility: input.style.visibility,
+      zIndex: input.style.zIndex,
+      width: input.style.width,
+      height: input.style.height,
+    });
     input.autocapitalize = 'off';
     input.setAttribute('autocorrect', 'off');
     input.autocomplete = 'off';
     input.spellcheck = false;
+
+    // Add a unique ID for debugging
+    input.id = 'vibe-desktop-ime-input';
+    input.setAttribute('data-ime-input', 'true');
 
     if (this.options.className) {
       input.className = this.options.className;
     }
 
     this.options.container.appendChild(input);
+
+    // Verify input is in DOM
+    setTimeout(() => {
+      const foundInput = document.getElementById('vibe-desktop-ime-input');
+      logger.log('🔍 IME input DOM check:', {
+        found: !!foundInput,
+        parent: foundInput?.parentElement?.id || 'no-parent',
+        isConnected: foundInput?.isConnected,
+        computedStyles: foundInput
+          ? {
+              display: window.getComputedStyle(foundInput).display,
+              visibility: window.getComputedStyle(foundInput).visibility,
+              opacity: window.getComputedStyle(foundInput).opacity,
+              position: window.getComputedStyle(foundInput).position,
+              zIndex: window.getComputedStyle(foundInput).zIndex,
+            }
+          : null,
+      });
+    }, 100);
+
     return input;
   }
 
@@ -148,11 +182,21 @@ export class DesktopIMEInput {
     // Keep input visible during composition
     this.showInput();
     this.updatePosition();
-    logger.log('IME composition started');
+    logger.log('🔴 IME composition started - isComposing:', this.isComposing);
+    logger.log('🔴 Input element state:', {
+      value: this.input.value,
+      focused: document.activeElement === this.input,
+      opacity: this.input.style.opacity,
+      position: `${this.input.style.left}, ${this.input.style.bottom}`,
+    });
   };
 
   private handleCompositionUpdate = (e: CompositionEvent) => {
-    logger.log('IME composition update:', e.data);
+    logger.log('🟡 IME composition update:', {
+      data: e.data,
+      inputValue: this.input.value,
+      isComposing: this.isComposing,
+    });
     // Update position during composition as well
     this.updatePosition();
   };
@@ -162,12 +206,22 @@ export class DesktopIMEInput {
     document.body.removeAttribute('data-ime-composing');
 
     const finalText = e.data;
+    logger.log('🟢 IME composition ended:', {
+      finalText,
+      eventData: e.data,
+      inputValue: this.input.value,
+      willSendText: !!finalText,
+    });
+
     if (finalText) {
+      logger.log('🚀 Sending IME text to terminal:', finalText);
       this.options.onTextInput(finalText);
+    } else {
+      logger.warn('⚠️ IME composition ended with no text');
     }
 
     this.input.value = '';
-    logger.log('IME composition ended:', finalText);
+    logger.log('🧹 Input cleared after composition');
 
     // Hide input after composition if not focused
     setTimeout(() => {
@@ -182,13 +236,22 @@ export class DesktopIMEInput {
     const input = e.target as HTMLInputElement;
     const text = input.value;
 
+    logger.log('📝 Input event:', {
+      text,
+      isComposing: this.isComposing,
+      inputType: (e as InputEvent).inputType,
+      data: (e as InputEvent).data,
+    });
+
     // Skip if composition is active
     if (this.isComposing) {
+      logger.log('⏭️ Skipping input during composition');
       return;
     }
 
     // Handle regular typing (non-IME)
     if (text) {
+      logger.log('📤 Sending regular text to terminal:', text);
       this.options.onTextInput(text);
       input.value = '';
       // Hide input after sending text if not focused
@@ -307,58 +370,68 @@ export class DesktopIMEInput {
   };
 
   private showInput(): void {
-    // Position will be updated by updatePosition()
+    // Make input visible for IME
+    this.input.style.opacity = '0.8';
+    this.updatePosition();
     logger.log('IME input shown');
   }
 
   private hideInput(): void {
-    // Move input off-screen instead of hiding
-    this.input.style.top = '-9999px';
-    this.input.style.left = '-9999px';
+    // Make input nearly invisible but keep in position for quick access
+    this.input.style.opacity = '0.01';
     logger.log('IME input hidden');
   }
 
   private updatePosition(): void {
-    if (!this.options.getCursorInfo) {
-      // Fallback to safe positioning when no cursor info provider
-      logger.warn('No getCursorInfo callback provided, using fallback position');
-      this.input.style.left = '10px';
-      this.input.style.top = '10px';
-      return;
+    // For desktop IME, we keep the input at bottom center for consistent candidate window positioning
+    // This ensures the IME candidate window always appears in a predictable location
+    // and doesn't interfere with terminal content
+
+    if (this.options.getCursorInfo) {
+      const cursorInfo = this.options.getCursorInfo();
+      if (cursorInfo) {
+        // Optional: We could position near cursor in the future, but for now
+        // bottom center provides the most consistent IME experience
+        logger.log(`Cursor info available at x=${cursorInfo.x}, y=${cursorInfo.y}`);
+      }
     }
 
-    const cursorInfo = this.options.getCursorInfo();
-    if (!cursorInfo) {
-      // Fallback to safe positioning when cursor info unavailable
-      logger.warn('getCursorInfo returned null, using fallback position');
-      this.input.style.left = '10px';
-      this.input.style.top = '10px';
-      return;
-    }
-
-    // Position IME input at cursor location with upward adjustment for better alignment
-    const x = Math.max(10, cursorInfo.x);
-    const y = Math.max(10, cursorInfo.y - IME_VERTICAL_OFFSET_PX);
-
-    logger.log(`Positioning CJK input at x=${x}, y=${y}`);
-    this.input.style.left = `${x}px`;
-    this.input.style.top = `${y}px`;
+    // Keep at bottom center for consistent IME display
+    this.input.style.position = 'fixed';
+    this.input.style.bottom = '20px';
+    this.input.style.left = '50%';
+    this.input.style.transform = 'translateX(-50%)';
+    logger.log('IME input positioned at bottom center');
   }
 
   focus(): void {
-    // Update position first to bring input into view
+    logger.log('🎯 Focus requested on IME input');
+
+    // Ensure input is properly positioned and visible
     this.updatePosition();
     this.showInput();
+
+    // Make input more visible when explicitly focused
+    this.input.style.opacity = '0.8';
 
     // Use immediate focus
     this.input.focus();
 
+    logger.log('🔍 After focus attempt:', {
+      activeElement: document.activeElement?.tagName,
+      isOurInput: document.activeElement === this.input,
+      inputId: this.input.id || 'no-id',
+      opacity: this.input.style.opacity,
+    });
+
     // Verify focus worked
     requestAnimationFrame(() => {
       if (document.activeElement !== this.input) {
+        logger.warn('⚠️ Focus lost, retrying...');
         requestAnimationFrame(() => {
           if (document.activeElement !== this.input) {
             this.input.focus();
+            logger.log('🔄 Retry focus result:', document.activeElement === this.input);
           }
         });
       }

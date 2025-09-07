@@ -162,7 +162,7 @@ export class VibeTerminalBinary extends VibeTerminalBuffer {
       <div class="relative h-full flex flex-col">
         <!-- Terminal container -->
         <div 
-          id="terminal-container"
+          id="session-terminal"
           class="terminal-scroll-container flex-1 overflow-auto ${baseTheme}"
           style="font-size: ${this.fontSize}px;"
         >
