@@ -8,7 +8,11 @@
       "Bash(pnpm run check:fix:*)",
       "Bash(biome check:*)",
       "Bash(pnpm exec biome check:*)",
-      "Bash(pnpm run:*)"
+      "Bash(pnpm run:*)",
+      "Read(//Users/m1maxmbp/.vibetunnel/**)",
+      "Bash(echo $LANG)",
+      "Bash(echo $LC_ALL)",
+      "Bash(echo $LC_CTYPE)"
     ],
     "deny": []
   },

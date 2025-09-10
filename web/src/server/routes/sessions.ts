@@ -1047,6 +1047,11 @@ export function createSessionRoutes(config: SessionRoutesConfig): Router {
     const sessionId = req.params.sessionId;
     const { text, key } = req.body;
 
+    // Debug log for Chinese character encoding
+    if (text && /[\u4e00-\u9fff]/.test(text)) {
+      logger.debug(`Received Chinese input for session ${sessionId}: "${text}"`);
+    }
+
     // Validate that only one of text or key is provided
     if ((text === undefined && key === undefined) || (text !== undefined && key !== undefined)) {
       logger.warn(
