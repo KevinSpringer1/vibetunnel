@@ -421,11 +421,6 @@ export class PtyManager extends EventEmitter {
             cwd: workingDir,
             hasEnv: !!ptyEnv,
             envKeys: Object.keys(ptyEnv).length,
-            encoding: {
-              LANG: (ptyEnv as any).LANG || 'not set',
-              LC_CTYPE: (ptyEnv as any).LC_CTYPE || 'not set',
-              LC_ALL: (ptyEnv as any).LC_ALL || 'not set',
-            },
           },
         });
 
@@ -1034,12 +1029,6 @@ export class PtyManager extends EventEmitter {
             // Queue input write to prevent race conditions
             session.inputQueue.enqueue(() => {
               if (session.ptyProcess) {
-                // Debug log for Chinese character encoding
-                if (/[\u4e00-\u9fff]/.test(text)) {
-                  logger.debug(
-                    `Writing Chinese text to PTY: "${text}", bytes: ${Buffer.from(text).toString('hex')}`
-                  );
-                }
                 session.ptyProcess.write(text);
               }
               // Record it (non-blocking)
@@ -1199,12 +1188,6 @@ export class PtyManager extends EventEmitter {
         // Queue input write to prevent race conditions
         memorySession.inputQueue.enqueue(() => {
           if (memorySession.ptyProcess) {
-            // Debug log for Chinese character encoding
-            if (/[\u4e00-\u9fff]/.test(dataToSend)) {
-              logger.debug(
-                `Writing Chinese text to PTY (HTTP): "${dataToSend}", bytes: ${Buffer.from(dataToSend).toString('hex')}`
-              );
-            }
             memorySession.ptyProcess.write(dataToSend);
           }
           memorySession.asciinemaWriter?.writeInput(dataToSend);
@@ -1949,13 +1932,11 @@ export class PtyManager extends EventEmitter {
       // Prefer the system's locale with UTF-8, fallback to en_US.UTF-8
       const systemLang = envVars.LANG?.split('.')[0] || 'en_US';
       envVars.LANG = `${systemLang}.UTF-8`;
-      logger.debug(`Forcing UTF-8 encoding: LANG=${envVars.LANG}`);
     }
 
     // Also set LC_CTYPE for character handling if not set
     if (!envVars.LC_CTYPE) {
       envVars.LC_CTYPE = envVars.LANG;
-      logger.debug(`Setting LC_CTYPE=${envVars.LC_CTYPE} for character handling`);
     }
 
     // Note: We don't force LC_ALL as it overrides all other LC_* variables

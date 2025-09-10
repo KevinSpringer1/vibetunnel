@@ -359,22 +359,13 @@ export class InputManager {
       return;
     }
 
-    logger.log('🔄 sendInputInternal:', {
-      input,
-      errorContext,
-      useWebSocketInput: this.useWebSocketInput,
-      sessionId: this.session.id,
-    });
-
     try {
       // Try WebSocket first if feature enabled - non-blocking (connection should already be established)
       if (this.useWebSocketInput) {
         const sentViaWebSocket = websocketInputClient.sendInput(input);
-        logger.log('🌐 WebSocket send result:', sentViaWebSocket);
 
         if (sentViaWebSocket) {
           // Successfully sent via WebSocket, no need for HTTP fallback
-          logger.log('✅ Input sent via WebSocket');
           return;
         }
       }
@@ -411,17 +402,6 @@ export class InputManager {
   }
 
   async sendInputText(text: string): Promise<void> {
-    // Enhanced logging for Chinese character debugging
-    const hasChineseChars = /[\u4e00-\u9fff]/.test(text);
-    logger.log('📤 sendInputText called with:', {
-      text,
-      length: text.length,
-      sessionId: this.session?.id,
-      hasSession: !!this.session,
-      hasChineseChars,
-      charCodes: hasChineseChars ? [...text].map((c) => c.charCodeAt(0).toString(16)) : undefined,
-    });
-
     // sendInputText is used for pasted content - always treat as literal text
     // Never interpret pasted text as special keys to avoid ambiguity
     await this.sendInputInternal({ text }, 'send input to session');
